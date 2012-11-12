@@ -1,0 +1,10 @@
+<resources>
+
+    <string name="app_name">DashPlayer</string>
+    <string name="title_video_detail">Video Detail</string>
+    <string name="title_video_list">Videos</string>
+    <string name="refresh">Refresh</string>
+    <string name="play">Play</string>
+    <string name="no_video_selected">No video selected</string>
+
+</resources>
