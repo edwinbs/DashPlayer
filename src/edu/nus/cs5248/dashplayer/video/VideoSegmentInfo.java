@@ -1,13 +1,12 @@
 package edu.nus.cs5248.dashplayer.video;
 
-import java.util.HashMap;
-import java.util.Map;
+import android.util.SparseArray;
 
 public class VideoSegmentInfo {
 
 	public VideoSegmentInfo() {
 		this.cacheFilePath = "";
-		this.sourceURLs = new HashMap<Integer, String>();
+		this.sourceURLs = new SparseArray<String>(3);
 	}
 	
 	public void setCacheInfo(int quality, String cacheFilePath) {
@@ -33,6 +32,6 @@ public class VideoSegmentInfo {
 	
 	private int cacheQuality;
 	private String cacheFilePath;
-	private Map<Integer, String> sourceURLs;
+	private SparseArray<String> sourceURLs;
 	
 }

@@ -6,5 +6,10 @@
     <string name="refresh">Refresh</string>
     <string name="play">Play</string>
     <string name="no_video_selected">No video selected</string>
+    <string name="bandwidth_label">Bandwidth:</string>
+    <string name="zero_kbps">0 kB/s</string>
+    <string name="buffer_label">Buffer:</string>
+    <string name="zero">0</string>
+    <string name="ready">Ready</string>
 
 </resources>

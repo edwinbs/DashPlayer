@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item android:id="@+id/refresh" android:title="@string/refresh" android:showAsAction="ifRoom|withText" android:icon="@drawable/ic_navigation_refresh"></item>
+    <item android:id="@+id/play_menu" android:title="@string/play" android:showAsAction="ifRoom|withText" android:icon="@drawable/ic_av_play"></item>
+    
+
+</menu>

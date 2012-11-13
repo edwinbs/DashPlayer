@@ -26,13 +26,14 @@ public class VideoDetailActivity extends FragmentActivity {
                     .commit();
         }
     }
-
+    
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
+    	switch (item.getItemId()) {
+    	case android.R.id.home:
             NavUtils.navigateUpTo(this, new Intent(this, VideoListActivity.class));
             return true;
-        }
+	    }
 
         return super.onOptionsItemSelected(item);
     }

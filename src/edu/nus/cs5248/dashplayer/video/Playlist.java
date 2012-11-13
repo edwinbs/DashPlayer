@@ -13,12 +13,13 @@ import android.util.Log;
 import android.util.Xml;
 
 public class Playlist implements Iterable<VideoSegmentInfo> {
+	protected static final String TAG = "Playlist";
 
 	public static Playlist createFromMPD(String mpd) {
 		Playlist playlist = new Playlist();
 		
 		if (!playlist.initWithMPD(mpd)) {
-			Log.e("Playlist::createFromMPD", "Failed to parse MPD");
+			Log.e(TAG, "Failed to parse MPD");
 			return null;
 		}
 		
@@ -67,7 +68,7 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 					if (tagName.equalsIgnoreCase(Playlist.MPD_TAG)) {
 						this.duration = parser.getAttributeValue(null, Playlist.MEDIA_PRESENTATION_DURATION);
 						this.minBufferTime = parser.getAttributeValue(null, Playlist.MIN_BUFFER_TIME);
-						Log.v("Playlist::initWithMPD", "[MPD] duration=" + this.duration + " minBufferTime=" + this.minBufferTime);
+						Log.v(TAG, "[MPD] duration=" + this.duration + " minBufferTime=" + this.minBufferTime);
 					}
 					else if (tagName.equalsIgnoreCase(Playlist.REPRESENTATION)) {
 						String width = parser.getAttributeValue(null, Playlist.WIDTH);
@@ -77,19 +78,19 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 						
 						quality = Integer.parseInt(height);
 						
-						Log.v("Playlist::initWithMPD", "[Representation] width=" + width + " height=" + height + " bandwidth=" + bandwidth + " minBufferTime=" + minBufferTime);
+						Log.v(TAG, "[Representation] width=" + width + " height=" + height + " bandwidth=" + bandwidth + " minBufferTime=" + minBufferTime);
 					}
 					else if (tagName.equalsIgnoreCase(Playlist.SEGMENT_INFO)) {
 						String duration = parser.getAttributeValue(null, Playlist.DURATION);
 						segmentIndex = 0;
-						Log.v("Playlist::initWithMPD", "[SegmentInfo] duration=" + duration);
+						Log.v(TAG, "[SegmentInfo] duration=" + duration);
 					}
 					else if (tagName.equalsIgnoreCase(Playlist.URL)) {
 						String sourceURL = parser.getAttributeValue(null, Playlist.SOURCE_URL);
 						
 						this.addSegmentSource(segmentIndex++, quality, sourceURL);
 						
-						Log.v("Playlist::initWithMPD", "[URL] sourceURL=" + sourceURL);
+						Log.v(TAG, "[URL] sourceURL=" + sourceURL);
 					}
 					break;
 				}
@@ -97,13 +98,13 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 			}
 
 		} catch (XmlPullParserException e) {
-			Log.e("Playlist::initWithMPD", "Parse exception: " + e.getMessage());
+			Log.e(TAG, "Parse exception: " + e.getMessage());
 			return false;
 		} catch (IOException e) {
-			Log.e("Playlist::initWithMPD", "IO exception: " + e.getMessage());
+			Log.e(TAG, "IO exception: " + e.getMessage());
 			return false;
 		} catch (NumberFormatException e) {
-			Log.e("Playlist::initWithMPD", "Malformed response: " + e.getMessage());
+			Log.e(TAG, "Malformed response: " + e.getMessage());
 			return false;
 		}
 

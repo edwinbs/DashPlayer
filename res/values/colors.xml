@@ -1,5 +1,6 @@
 
     <resources>
-        <color name="translucent_black">#33000000</color>
+        <color name="translucent_white">#99ffffff</color>
         <color name="white">#ffffff</color>
+        <color name="black">#000000</color>
     </resources>

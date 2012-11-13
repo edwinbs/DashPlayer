@@ -1,16 +1,16 @@
 package edu.nus.cs5248.dashplayer.video;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import android.util.Log;
+import android.util.SparseArray;
 
 import edu.nus.cs5248.dashplayer.streamer.DashResult;
 import edu.nus.cs5248.dashplayer.streamer.DashStreamer;
 
 public class VideoInfo {
+	protected static final String TAG = "VideoInfo";
 
     public static class VideoInfoItem {
 
@@ -29,33 +29,42 @@ public class VideoInfo {
             return title;
         }
     }
+    
+    public static interface UpdateVideoListCallback {
+    	public void updateVideoListDidFinish(int result, List<VideoInfoItem> videoInfos);
+    }
 
     public static List<VideoInfoItem> ITEMS = new ArrayList<VideoInfoItem>();
-    public static Map<Integer, VideoInfoItem> ITEM_MAP = new HashMap<Integer, VideoInfoItem>();
+    public static SparseArray<VideoInfoItem> ITEM_MAP = new SparseArray<VideoInfoItem>(32);
     
     private static void addItem(VideoInfoItem item) {
         ITEMS.add(item);
         ITEM_MAP.put(item.id, item);
     }
     
-    public static void updateVideoList() {
-    	Log.d("VideoInfo", "Fetching video list from server...");
+    public static void updateVideoList(final UpdateVideoListCallback callback) {
+    	Log.d(TAG, "Fetching video list from server...");
     	DashStreamer.INSTANCE.getVideoList(new DashStreamer.GetVideoListCallback() {
 			
 			@Override
 			public void getVideoListDidFinish(int result, List<VideoInfoItem> videoInfos) {
-				Log.d("VideoInfo", "Get video list finished, result=" + result);
+				Log.d(TAG, "Get video list finished, result=" + result);
 				
 				if (result != DashResult.OK)
 					return;
 				
 				ITEMS.clear();
+				ITEM_MAP.clear();
 				
 				for (VideoInfoItem item : videoInfos) {
-					Log.d("VideoInfo", "id=" + item.id + " title=" + item.title + " isFinalized=" + item.isFinalized);
+					Log.v(TAG, "id=" + item.id + " title=" + item.title + " isFinalized=" + item.isFinalized);
 					if (item.isFinalized) {
 						addItem(item);
 					}
+				}
+				
+				if (callback != null) {
+					callback.updateVideoListDidFinish(result, videoInfos);
 				}
 			}
 		});

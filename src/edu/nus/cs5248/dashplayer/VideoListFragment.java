@@ -1,8 +1,10 @@
 package edu.nus.cs5248.dashplayer;
 
-import edu.nus.cs5248.dashplayer.video.VideoInfo;
+import java.util.List;
 
-import android.R;
+import edu.nus.cs5248.dashplayer.video.VideoInfo;
+import edu.nus.cs5248.dashplayer.video.VideoInfo.VideoInfoItem;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
@@ -13,10 +15,12 @@ import android.widget.ListView;
 
 public class VideoListFragment extends ListFragment {
 
+	protected static final String TAG = "VideoListFragment";
     private static final String STATE_ACTIVATED_POSITION = "activated_position";
 
     private Callbacks mCallbacks = sDummyCallbacks;
     private int mActivatedPosition = ListView.INVALID_POSITION;
+    private ArrayAdapter<VideoInfo.VideoInfoItem> mAdapter = null;
 
     public interface Callbacks {
 
@@ -26,7 +30,7 @@ public class VideoListFragment extends ListFragment {
     private static Callbacks sDummyCallbacks = new Callbacks() {
         @Override
         public void onItemSelected(int id) {
-        	Log.d("VideoListFragment", "Selected video id=" + id);
+        	Log.d(TAG, "Selected video id=" + id);
         }
     };
 
@@ -37,14 +41,15 @@ public class VideoListFragment extends ListFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d("VideoListFragment", "onCreate");
+        Log.d(TAG, "onCreate");
         
-        setListAdapter(new ArrayAdapter<VideoInfo.VideoInfoItem>(getActivity(),
-                R.layout.simple_list_item_activated_1,
-                R.id.text1,
-                VideoInfo.ITEMS));
+        this.mAdapter = new ArrayAdapter<VideoInfo.VideoInfoItem>(getActivity(),
+                android.R.layout.simple_list_item_activated_1,
+                android.R.id.text1,
+                VideoInfo.ITEMS);
         
-        VideoInfo.updateVideoList();
+        setListAdapter(this.mAdapter);   
+        this.updateVideoList();
     }
 
     @Override
@@ -101,4 +106,15 @@ public class VideoListFragment extends ListFragment {
 
         mActivatedPosition = position;
     }
+
+	public void updateVideoList() {
+		VideoInfo.updateVideoList(new VideoInfo.UpdateVideoListCallback() {
+			
+			@Override
+			public void updateVideoListDidFinish(int result,
+					List<VideoInfoItem> videoInfos) {
+				mAdapter.notifyDataSetChanged();
+			}
+		});
+	}
 }

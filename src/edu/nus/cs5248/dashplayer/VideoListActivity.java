@@ -1,7 +1,7 @@
 package edu.nus.cs5248.dashplayer;
 
-import edu.nus.cs5248.dashplayer.video.VideoInfo;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -12,13 +12,17 @@ import android.view.MenuItem;
 public class VideoListActivity extends FragmentActivity
         implements VideoListFragment.Callbacks {
 
+	protected static final String TAG = "VideoListActivity";
     private boolean mTwoPane;
+    private VideoDetailFragment activeDetailFragment;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d("VideoListActivity", "onCreate");
+        Log.d(TAG, "onCreate");
+        
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         
         setContentView(R.layout.activity_video_list);
 
@@ -35,10 +39,10 @@ public class VideoListActivity extends FragmentActivity
         if (mTwoPane) {
             Bundle arguments = new Bundle();
             arguments.putInt(VideoDetailFragment.ARG_ITEM_ID, id);
-            VideoDetailFragment fragment = new VideoDetailFragment();
-            fragment.setArguments(arguments);
+            this.activeDetailFragment = new VideoDetailFragment();
+            this.activeDetailFragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.video_detail_container, fragment)
+                    .replace(R.id.video_detail_container, this.activeDetailFragment)
                     .commit();
 
         } else {
@@ -51,7 +55,7 @@ public class VideoListActivity extends FragmentActivity
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.list_menu, menu);
+        inflater.inflate(R.menu.dash_player_menu, menu);
         return true;
     }
     
@@ -60,8 +64,14 @@ public class VideoListActivity extends FragmentActivity
         // Handle item selection
         switch (item.getItemId()) {
             case R.id.refresh:
-            	VideoInfo.updateVideoList();
+            	((VideoListFragment) getSupportFragmentManager()
+                        .findFragmentById(R.id.video_list)).updateVideoList();
             	return true;
+            case R.id.play_menu:
+    	    	if (this.activeDetailFragment != null) {
+    	    		this.activeDetailFragment.playMenuSelected();
+    	    	}
+    	    	return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
