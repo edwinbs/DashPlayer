@@ -187,8 +187,11 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 			return DashResult.FAIL;
 		}
 		
-		int quality = getDefaultQualityForCurrentConnection(this.context);
-		this.estimatedBandwidth = 0;
+		//The initial quality is decided based on the network link type
+		//The estimated bandwidth here is NOT used for calculating subsequent estimated bandwidth
+		int quality = playlist.getQualityForBandwidth(getEstimatedBandwidthForCurrentConnection(this.context));
+		
+		this.estimatedBandwidth = 0; //0 will be treated as uninitialized
 		
 		for (VideoSegmentInfo segment : playlist) {
 			String url = segment.getURLForQuality(quality);
@@ -205,13 +208,13 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 				Log.d(TAG, "Last download speed=" + downloadSpeed);
 				this.updateEstimatedBandwidth(downloadSpeed);
 				
-				int newQuality = this.qualityForCurrentBandwidth();
+				int newQuality = playlist.getQualityForBandwidth(this.estimatedBandwidth);
 				if (newQuality != quality) {
 					Log.i(TAG, "Switching quality from " + quality + "p to " + newQuality + "p");
 					quality = newQuality;
 				}
 				
-				publishProgress(new StreamingProgressInfo(this.estimatedBandwidth, segment));;
+				publishProgress(new StreamingProgressInfo(this.estimatedBandwidth, segment));
 			}
 			else {
 				Log.d(TAG, "Download failed, aborting");
@@ -295,14 +298,14 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 		return DashStreamer.CACHE_FOLDER + fileName;
 	}
 	
-	public static int getDefaultQualityForCurrentConnection(Context context) {		
+	public static int getEstimatedBandwidthForCurrentConnection(Context context) {		
 		ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo info = cm.getActiveNetworkInfo();
-        int defaultQuality = 0;
+        int estimatedBandwidth = 0;
         
         if (info == null || !info.isConnected()) {
         	Log.d(TAG, "No network connection");
-        	defaultQuality = 0;
+        	estimatedBandwidth = 0;
         }
         else if (info.getType() == ConnectivityManager.TYPE_WIFI) {
         	WifiManager wm = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
@@ -310,40 +313,43 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
         	
         	Log.d(TAG, "Connection: WiFi (" + linkSpeedMbps + " Mb/s)");
         	
-        	if (linkSpeedMbps >= 100) { //Because in practice link speeds < 100Mbps is bad
-        		defaultQuality = Playlist.QUALITY_HIGH;
+        	if (linkSpeedMbps >= 10) {
+        		estimatedBandwidth = HIGH_BANDWIDTH;
+        	}
+        	else if (linkSpeedMbps > 1) {
+        		estimatedBandwidth = MEDIUM_BANDWIDTH;
         	}
         	else {
-        		defaultQuality = Playlist.QUALITY_MEDIUM;
+        		estimatedBandwidth = LOW_BANDWIDTH;
         	}
         }
         else if (info.getType() == ConnectivityManager.TYPE_MOBILE) {
         	Log.d(TAG, "Connection: Mobile (" + info.getSubtypeName() + ")");
         	switch (info.getSubtype()) {
         	
-        	case TelephonyManager.NETWORK_TYPE_EVDO_0:
-        	case TelephonyManager.NETWORK_TYPE_EVDO_A:
-        	case TelephonyManager.NETWORK_TYPE_HSPA:
-        	case TelephonyManager.NETWORK_TYPE_UMTS:
-        	case TelephonyManager.NETWORK_TYPE_EHRPD:
-        		defaultQuality = Playlist.QUALITY_MEDIUM;
-        		break;
-        		
         	case TelephonyManager.NETWORK_TYPE_HSDPA:
         	case TelephonyManager.NETWORK_TYPE_HSUPA:
         	case TelephonyManager.NETWORK_TYPE_EVDO_B:
         	case TelephonyManager.NETWORK_TYPE_HSPAP:
         	case TelephonyManager.NETWORK_TYPE_LTE:
-        		defaultQuality = Playlist.QUALITY_HIGH;
+        		estimatedBandwidth = HIGH_BANDWIDTH;
+        		break;
+        	
+        	case TelephonyManager.NETWORK_TYPE_EVDO_0:
+        	case TelephonyManager.NETWORK_TYPE_EVDO_A:
+        	case TelephonyManager.NETWORK_TYPE_HSPA:
+        	case TelephonyManager.NETWORK_TYPE_UMTS:
+        	case TelephonyManager.NETWORK_TYPE_EHRPD:
+        		estimatedBandwidth = MEDIUM_BANDWIDTH;
         		break;
         		
         	default:
-        		defaultQuality = Playlist.QUALITY_LOW;
+        		estimatedBandwidth = LOW_BANDWIDTH;
         		break;
         	}
         }
         
-        return defaultQuality;
+        return estimatedBandwidth;
 	}
 	
 	private void updateEstimatedBandwidth(final long lastDownloadBandwidth) {
@@ -355,20 +361,15 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 		}
 	}
 	
-	private int qualityForCurrentBandwidth() {
-		if ((this.estimatedBandwidth) >= (3096000 / 8)) {
-			return Playlist.QUALITY_HIGH;
-		}
-		
-		if ((this.estimatedBandwidth) >= (768000 / 8)) {
-			return Playlist.QUALITY_MEDIUM;
-		}
-		
-		return Playlist.QUALITY_LOW;
-	}
-	
 	private String title;
 	private long   estimatedBandwidth;
 	private Context context;
 	private DashStreamer.StreamVideoCallback callback;
+	
+	//Rough estimate for link speed in kB/s,
+	//used for deciding the quality to download for the first segment
+	private static final int HIGH_BANDWIDTH 	= 387000; //3Mbps
+	private static final int MEDIUM_BANDWIDTH 	=  96000; //768kbps
+	private static final int LOW_BANDWIDTH 		=  25000; //200kbps
+	
 }

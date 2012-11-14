@@ -3,6 +3,7 @@ package edu.nus.cs5248.dashplayer.video;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -14,6 +15,22 @@ import android.util.Xml;
 
 public class Playlist implements Iterable<VideoSegmentInfo> {
 	protected static final String TAG = "Playlist";
+	
+	protected static class QualitySpec implements Comparable<QualitySpec> {
+		int verticalResolution;
+		int requiredBandwidth;
+		
+		public QualitySpec(final int verticalQuality, final int requiredBandwidth) {
+			this.verticalResolution = verticalQuality;
+			this.requiredBandwidth = requiredBandwidth;
+		}
+		
+		@Override
+		public int compareTo(QualitySpec rhs) {
+			if (this == rhs) return 0;
+			return (Integer.valueOf(this.verticalResolution)).compareTo(Integer.valueOf(rhs.verticalResolution));
+		}
+	}
 
 	public static Playlist createFromMPD(String mpd) {
 		Playlist playlist = new Playlist();
@@ -30,6 +47,7 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 		this.segmentInfos = new ArrayList<VideoSegmentInfo>();
 		this.duration = "PT0S";
 		this.minBufferTime = "PT0S";
+		this.qualities = new ArrayList<QualitySpec>();
 	}
 	
 	public void addSegmentSource(int index, int quality, String sourceURL) {
@@ -43,6 +61,24 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 		}
 		
 		segment.setURLForQuality(quality, sourceURL);
+	}
+	
+	/**
+	 * Provide the recommended video quality for the given bandwidth, 
+	 * based on the specification in MPD playlist.
+	 * 
+	 * @param bandwidth bandwidth in bytes per second
+	 * @return
+	 */
+	public int getQualityForBandwidth(long bandwidth) {
+		for (QualitySpec qs : qualities) {
+			if ((qs.requiredBandwidth / 8) <= bandwidth) {
+				return qs.verticalResolution;
+			}
+		}
+		
+		Log.i(TAG, "WARNING: no suitable quality for bandwidth=" + bandwidth);
+		return qualities.get(qualities.size() - 1).verticalResolution;
 	}
 	
 	private boolean initWithMPD(String mpd) {
@@ -77,6 +113,7 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 						String minBufferTime = parser.getAttributeValue(null, Playlist.MIN_BUFFER_TIME);
 						
 						quality = Integer.parseInt(height);
+						this.qualities.add(new QualitySpec(quality, Integer.parseInt(bandwidth)));
 						
 						Log.v(TAG, "[Representation] width=" + width + " height=" + height + " bandwidth=" + bandwidth + " minBufferTime=" + minBufferTime);
 					}
@@ -107,6 +144,8 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 			Log.e(TAG, "Malformed response: " + e.getMessage());
 			return false;
 		}
+		
+		Collections.sort(qualities, Collections.reverseOrder());
 
 		return true;
 	}
@@ -114,6 +153,7 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 	private String duration;
 	private String minBufferTime;
 	private List<VideoSegmentInfo> segmentInfos;
+	private ArrayList<QualitySpec> qualities;
 	
 	static final String MPD_TAG = "MPD";
 	static final String MEDIA_PRESENTATION_DURATION = "mediaPresentationDuration";
@@ -126,10 +166,6 @@ public class Playlist implements Iterable<VideoSegmentInfo> {
 	static final String DURATION = "duration";
 	static final String URL = "Url";
 	static final String SOURCE_URL = "sourceURL";
-	
-	public static final int QUALITY_LOW = 160;
-	public static final int QUALITY_MEDIUM = 320;
-	public static final int QUALITY_HIGH = 480;
 	
 	@Override
 	public Iterator<VideoSegmentInfo> iterator() {
