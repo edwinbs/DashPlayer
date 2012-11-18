@@ -24,7 +24,7 @@ public final class R {
         public static final int bandwidth_text=0x7f080004;
         public static final int buffer_text=0x7f080005;
         public static final int container=0x7f080002;
-        public static final int media_container=0x7f080003;
+        public static final int media_view=0x7f080003;
         public static final int play_menu=0x7f080008;
         public static final int refresh=0x7f080007;
         public static final int status_text=0x7f080006;

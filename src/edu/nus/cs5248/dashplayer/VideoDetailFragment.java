@@ -17,7 +17,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 public class VideoDetailFragment extends Fragment {
@@ -27,19 +26,12 @@ public class VideoDetailFragment extends Fragment {
 
     VideoInfo.VideoInfoItem mItem;
     
-    private RelativeLayout	mediaContainer;
-    
+    private SurfaceHolder 	holder;
+    private SurfaceView   	mediaView;
+    private MediaPlayer 	mediaPlayer;
     private TextView 		bandwidthText;
     private TextView 		bufferText;
     private TextView 		statusText;
-    
-    private MediaPlayer 	currentMediaPlayer;
-    private SurfaceHolder	currentHolder;
-    private SurfaceView		currentSurface;
-    
-    private MediaPlayer 	nextMediaPlayer;
-    private SurfaceHolder	nextHolder;
-    private SurfaceView		nextSurface;
     
     final Queue<VideoSegmentInfo> readySegments = new ArrayDeque<VideoSegmentInfo>();
     VideoSegmentInfo activeSegment = null;
@@ -60,95 +52,45 @@ public class VideoDetailFragment extends Fragment {
             Bundle savedInstanceState) {
     	
         View rootView 		= inflater.inflate(R.layout.fragment_video_detail, container, false);
-        this.mediaContainer	= (RelativeLayout) rootView.findViewById(R.id.media_container);
+        this.mediaView 		= (SurfaceView) rootView.findViewById(R.id.media_view);
+        this.holder 		= mediaView.getHolder();
         this.bandwidthText 	= (TextView) rootView.findViewById(R.id.bandwidth_text);
         this.bufferText 	= (TextView) rootView.findViewById(R.id.buffer_text);
         this.statusText 	= (TextView) rootView.findViewById(R.id.status_text);
-        
         return rootView;
     }
     
-    private void prepareNextPlayer(final VideoSegmentInfo segment) {
-		Log.i(TAG, "Preparing player for: " + segment.getCacheFilePath());
-		
-    	this.nextSurface = new SurfaceView(this.getActivity());
-        this.nextHolder  = this.nextSurface.getHolder();
-        mediaContainer.addView(nextSurface, 0);
-        
-        this.nextHolder.addCallback(new SurfaceHolder.Callback() {
+    public void playVideo(final VideoSegmentInfo segment) {
+    	try {
+    		Log.i(TAG, "Playing: " + segment.getCacheFilePath());
+    		this.statusText.setText(segment.getCacheFilePath() + " (" + segment.getCacheQuality() + "p)");
+    		
+	    	this.mediaPlayer = new MediaPlayer();
+	    	this.mediaPlayer.setOnCompletionListener(new OnCompletionListener() {
+				
+				@Override
+				public void onCompletion(MediaPlayer mp) {
+					mp.release();
+					scheduleNext();
+				}
+			});
+	    	this.mediaPlayer.setDataSource(segment.getCacheFilePath());
+			this.mediaPlayer.setSurface(this.holder.getSurface());
+			this.mediaPlayer.prepare();
 			
-			@Override
-			public void surfaceCreated(SurfaceHolder holder) {
-				try {
-					nextMediaPlayer = new MediaPlayer();
-			        nextMediaPlayer.setOnCompletionListener(new OnCompletionListener() {
-						
-						@Override
-						public void onCompletion(MediaPlayer mp) {
-							mp.release();
-							startNextPlayer();
-						}
-					});
-			        nextMediaPlayer.setDataSource(segment.getCacheFilePath());
-			        nextMediaPlayer.setSurface(nextHolder.getSurface());
-			        nextMediaPlayer.prepare();
-			        
-			        int videoWidth = nextMediaPlayer.getVideoWidth();
-					int videoHeight = nextMediaPlayer.getVideoHeight();
-					
-					int surfaceWidth = nextHolder.getSurfaceFrame().width();
-					ViewGroup.LayoutParams params = nextSurface.getLayoutParams();
-					params.width = surfaceWidth;
-					params.height = (int) (((float) videoHeight / (float) videoWidth) * (float) surfaceWidth);
-					nextSurface.setLayoutParams(params);
-					
-					nextMediaPlayer.start();
-					nextMediaPlayer.pause();
-					
-					if (currentMediaPlayer == null) {
-						startNextPlayer();
-					}
-				} catch (Exception e) {
-		    		e.printStackTrace();
-		    	}
-			}
+			int videoWidth = this.mediaPlayer.getVideoWidth();
+			int videoHeight = this.mediaPlayer.getVideoHeight();
 			
-			@Override
-			public void surfaceDestroyed(SurfaceHolder holder) { }
+			int surfaceWidth = this.holder.getSurfaceFrame().width();
+			ViewGroup.LayoutParams params = this.mediaView.getLayoutParams();
+			params.width = surfaceWidth;
+			params.height = (int) (((float) videoHeight / (float) videoWidth) * (float) surfaceWidth);
+			this.mediaView.setLayoutParams(params);
 			
-			@Override
-			public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) { }
-		});
-    }
-    
-    private void startNextPlayer() {
-    	Log.d(TAG, "Next player is starting...");
-    	
-    	SurfaceView previousSurface = this.currentSurface;
-    	
-    	this.currentMediaPlayer = this.nextMediaPlayer;
-    	this.currentHolder = this.nextHolder;
-    	this.currentSurface = this.nextSurface;
-    	
-    	if (this.currentMediaPlayer != null) {
-    		this.currentMediaPlayer.start();
+			this.mediaPlayer.start();
+    	} catch (Exception e) {
+    		e.printStackTrace();
     	}
-    	
-    	if (previousSurface != null) {
-    		try {
-				Thread.sleep(250);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-    		this.mediaContainer.removeView(previousSurface);
-    	}
-    	
-    	this.nextMediaPlayer = null;
-    	this.nextHolder = null;
-    	this.nextSurface = null;
-    	
-    	scheduleNext();
     }
     
 	public synchronized void queueForPlayback(final VideoSegmentInfo segment) {
@@ -163,27 +105,30 @@ public class VideoDetailFragment extends Fragment {
 	private void bufferContentChanged() {
 		int count = this.readySegments.size();
 		
-		if (count > 8) {
+		if (count > 7) {
 			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.HALT);
-		} else if (count > 4) {
+		}
+		else if (count > 5) {
 			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.AT_LEAST_FOUR_SECONDS);
-		} else {
+		}
+		else {
 			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.AS_FAST_AS_POSSIBLE);
 		}
 		
 		if (this.readySegments != null) {
 			this.bufferText.setText(Integer.toString(this.readySegments.size()));
-		} else {
+		}
+		else {
 			this.bufferText.setText("0");
 		}
 	}
 
-	private synchronized void scheduleNext() {
+	protected synchronized void scheduleNext() {
 		this.activeSegment = this.readySegments.poll();
 		bufferContentChanged();
 		
 		if (this.activeSegment != null) {
-			prepareNextPlayer(this.activeSegment);
+			playVideo(this.activeSegment);
 		} else {
 			Log.i(TAG, "Buffer is empty");
 			this.statusText.setText(R.string.ready);
