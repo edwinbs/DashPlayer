@@ -103,6 +103,18 @@ public class VideoDetailFragment extends Fragment {
 	}
 
 	private void bufferContentChanged() {
+		int count = this.readySegments.size();
+		
+		if (count > 7) {
+			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.HALT);
+		}
+		else if (count > 5) {
+			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.AT_LEAST_FOUR_SECONDS);
+		}
+		else {
+			DashStreamer.INSTANCE.changeStreamingStrategy(DashStreamer.AS_FAST_AS_POSSIBLE);
+		}
+		
 		if (this.readySegments != null) {
 			this.bufferText.setText(Integer.toString(this.readySegments.size()));
 		}

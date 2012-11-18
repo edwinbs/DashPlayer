@@ -50,7 +50,12 @@ public enum DashStreamer {
 	}
 	
 	public void streamVideo(final String title, final Context context, final StreamVideoCallback callback) {
-		new StreamVideoTask().execute(new StreamVideoTaskParam(title, context, callback));
+		this.streamVideoTask = new StreamVideoTask();
+		this.streamVideoTask.execute(new StreamVideoTaskParam(title, context, callback));
+	}
+	
+	public void changeStreamingStrategy(final int strategy) {
+		this.streamVideoTask.setStrategy(strategy);
 	}
 	
 	public static String urlFor(String restAction) {
@@ -60,6 +65,8 @@ public enum DashStreamer {
 	public static String playlistURLFor(String title, boolean m3u8) {
 		return BASE_URL + PLAYLIST + title + "." + (m3u8 ? "m3u8" : "mpd");
 	}
+	
+	private StreamVideoTask streamVideoTask;
 	
 	public static final String VIDEOS_INDEX			= "videos_index.php";
 	public static final String PLAYLIST				= "video_files/";
@@ -75,6 +82,11 @@ public enum DashStreamer {
 	public static final String VIDEOS 				= "videos";
 	public static final String TITLE 				= "title";
 	public static final String IS_FINALIZED 		= "is_finalized";
+	
+	//Download strategies
+	public static final int HALT = 0;
+	public static final int AS_FAST_AS_POSSIBLE = 1;
+	public static final int AT_LEAST_FOUR_SECONDS = 2;
 
 	private static final String BASE_URL = "http://pilatus.d1.comp.nus.edu.sg/~a0082245/";
 	
@@ -174,9 +186,14 @@ class StreamingProgressInfo {
 
 class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressInfo, Integer> {
 	protected static final String TAG = "StreamVideoTask";
+	
+	public StreamVideoTask() {
+		super();
+	}
 
 	@Override
 	protected Integer doInBackground(StreamVideoTaskParam... params) {		
+		setStrategy(DashStreamer.AS_FAST_AS_POSSIBLE); //Always reset to default strategy when starting
 		this.callback = params[0].callback;
 		this.title = params[0].title;
 		this.context = params[0].context;
@@ -215,6 +232,7 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 				}
 				
 				publishProgress(new StreamingProgressInfo(this.estimatedBandwidth, segment));
+				actOnDownloadStrategy(endTime - startTime);
 			}
 			else {
 				Log.d(TAG, "Download failed, aborting");
@@ -223,6 +241,31 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 		}
 		
 		return DashResult.OK;
+	}
+	
+	private void actOnDownloadStrategy(long lastDownloadTime) {
+		while (this.getStrategy() == DashStreamer.HALT) {
+			try {
+				Log.d(TAG, "HALT. Waiting for strategy change event.");
+				synchronized (this.strategyChangedEvent) {
+					this.strategyChangedEvent.wait();
+				}
+			} catch (InterruptedException e) {
+				Log.e(TAG, "Interrupted while on HALT mode.");
+			}
+		}
+		
+		if (this.getStrategy() == DashStreamer.AT_LEAST_FOUR_SECONDS) {
+			long sleepTime = 4000 - lastDownloadTime;
+			if (sleepTime > 0) {
+				try {
+					Log.d(TAG, "Sleeping for " + sleepTime + " ms before next download.");
+					Thread.sleep(sleepTime);
+				} catch (InterruptedException e) {
+					Log.e(TAG, "Interrupted while on AT_LEAST_THREE_SECONDS mode.");
+				}
+			}
+		}
 	}
 	
 	protected void onProgressUpdate(StreamingProgressInfo... info) {
@@ -295,7 +338,7 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 	
 	public static String pathForCacheFile(String url) {
 		String fileName = extractFileName(url);
-		return DashStreamer.CACHE_FOLDER + fileName;
+		return new File(DashStreamer.CACHE_FOLDER, fileName).getPath();
 	}
 	
 	public static int getEstimatedBandwidthForCurrentConnection(Context context) {		
@@ -361,15 +404,38 @@ class StreamVideoTask extends AsyncTask<StreamVideoTaskParam, StreamingProgressI
 		}
 	}
 	
+	public synchronized void setStrategy(final int newStrategy) {
+		if (this.strategy != newStrategy) {
+			if (newStrategy != DashStreamer.HALT && 
+					newStrategy != DashStreamer.AS_FAST_AS_POSSIBLE && 
+					newStrategy != DashStreamer.AT_LEAST_FOUR_SECONDS) {
+				throw new RuntimeException("Invalid strategy: " + newStrategy);
+			}
+			
+			this.strategy = newStrategy;
+			
+			synchronized (this.strategyChangedEvent) {
+				this.strategyChangedEvent.notify();
+			}
+		}
+	}
+	
+	private synchronized int getStrategy() {
+		return this.strategy;
+	}
+	
 	private String title;
 	private long   estimatedBandwidth;
 	private Context context;
 	private DashStreamer.StreamVideoCallback callback;
+	private int strategy;
+	private Object strategyChangedEvent = new Object();
 	
 	//Rough estimate for link speed in kB/s,
 	//used for deciding the quality to download for the first segment
 	private static final int HIGH_BANDWIDTH 	= 387000; //3Mbps
 	private static final int MEDIUM_BANDWIDTH 	=  96000; //768kbps
 	private static final int LOW_BANDWIDTH 		=  25000; //200kbps
+	
 	
 }
