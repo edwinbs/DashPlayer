@@ -6,13 +6,9 @@
     android:background="@color/black" >
 
     <RelativeLayout
+        android:id="@+id/media_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent" >
-
-        <SurfaceView
-            android:id="@+id/media_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
     </RelativeLayout>
 
     <LinearLayout
